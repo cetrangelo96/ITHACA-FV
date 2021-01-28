@@ -36,16 +36,6 @@ IOdictionary transportProperties
     )
 );
 
-_nu = autoPtr<dimensionedScalar>
-     (
-         new dimensionedScalar
-         (
-	     "nu",
- 	    dimViscosity,
- 	    transportProperties
-	 )
-     );
-//dimensionedScalar& nu = _nu();
 
 
 Info<< "Reading field p\n" << endl;

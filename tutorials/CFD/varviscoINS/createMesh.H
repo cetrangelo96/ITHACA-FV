@@ -22,75 +22,23 @@
   You should have received a copy of the GNU Lesser General Public License
   along with ITHACA-FV. If not, see <http://www.gnu.org/licenses/>.
 \*---------------------------------------------------------------------------*/
-Info<< "Reading transportProperties\n" << endl;
 
-IOdictionary transportProperties
-(
-    IOobject
-    (
-        "transportProperties",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ_IF_MODIFIED,
-        IOobject::NO_WRITE
-    )
-);
+Info << "Create mesh for time = "
+     << runTime.timeName() << nl << endl;
 
-_nu = autoPtr<dimensionedScalar>
-     (
-         new dimensionedScalar
-         (
-	     "nu",
- 	    dimViscosity,
- 	    transportProperties
-	 )
-     );
-//dimensionedScalar& nu = _nu();
+_mesh = autoPtr<fvMesh>
+        (
+            new fvMesh
+            (
+                IOobject
+                (
+                    fvMesh::defaultRegion,
+                    runTime.timeName(),
+                    runTime,
+                    IOobject::MUST_READ
+                )
+            )
+        );
 
+Foam::fvMesh& mesh = _mesh();
 
-Info<< "Reading field p\n" << endl;
-_p = autoPtr<volScalarField>
-     (
-         new volScalarField
-         (
-             IOobject
-             (
-                 "p",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volScalarField& p = _p();
-
-
-
-Info<< "Reading field U\n" << endl;
-_U = autoPtr<volVectorField>
-     (
-         new volVectorField
-         (
-             IOobject
-             (
-                 "U",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volVectorField& U = _U();
-
-#include "createPhi.H"
-
-
-
-pRefCell = 0;
-pRefValue = 0.0;
-setRefCell(p, mesh.solutionDict().subDict("PISO"), pRefCell, pRefValue);
-mesh.setFluxRequired(p.name());

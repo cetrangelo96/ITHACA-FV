@@ -22,20 +22,21 @@ License
     You should have received a copy of the GNU Lesser General Public License
     along with ITHACA-FV. If not, see <http://www.gnu.org/licenses/>.
 Description
-    Transient solver for incompressible, laminar flow of Newtonian fluids.
+    Transient solver for incompressible, laminar flow of Newtonian fluids with 
+    variable viscosity.
 SourceFiles
-    INS.C
+    varviscoINS.C
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
 #include "pisoControl.H" // Specialization of the pimpleControl class for PISO control.
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-class INS
+class varviscoINS
 {
     public:
 	// Constructor
-	explicit INS(int argc, char* argv[])
+	explicit varviscoINS(int argc, char* argv[])
 	{
 	    _args = autoPtr<argList>
                 (
@@ -60,7 +61,7 @@ class INS
 	#include "createFields.H"
 	};
 	// Destructor
-	~INS() {};
+	~varviscoINS() {};
 	/// Reference pressure cell
         label pRefCell;
         /// Reference pressure value
@@ -75,7 +76,7 @@ class INS
         /// Velocity field
         autoPtr<volVectorField> _U;
         /// Viscosity
-        autoPtr<dimensionedScalar> _nu;
+        autoPtr<surfaceScalarField> _nu;
 	/// Flux
         autoPtr<surfaceScalarField> _phi;
         /// Mesh
@@ -83,7 +84,17 @@ class INS
         /// Time
         autoPtr<Time> _runTime;
 	// Functions
-
+	/// Define the viscosity function
+        void compute_nu()
+        {   fvMesh& mesh = _mesh();
+            surfaceScalarField yPos = mesh.Cf().component(vector::Y);
+            surfaceScalarField xPos = mesh.Cf().component(vector::X);
+	    surfaceScalarField& nu = _nu();
+            forAll(xPos, counter)
+            {
+                 nu[counter] = xPos[counter] + yPos[counter];
+            }
+        }
         //--------------------------------------------------------------------------
         /// Perform a truthsolve
 	void icosolve()
@@ -92,7 +103,7 @@ class INS
         fvMesh& mesh = _mesh();
         volScalarField& p = _p();
         volVectorField& U = _U();
-	dimensionedScalar& nu = _nu();
+	surfaceScalarField& nu = _nu();
         surfaceScalarField& phi = _phi();
         pisoControl& piso = _piso();
 	#include "initContinuityErrs.H"        
@@ -175,8 +186,9 @@ class INS
 
 int main(int argc, char *argv[])
 {
-    INS example( argc, argv);
-    example.icosolve();
+    varviscoINS example( argc, argv);
+    example.compute_nu();
+    //example.icosolve();
     return 0;
 }
 

@@ -22,75 +22,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with ITHACA-FV. If not, see <http://www.gnu.org/licenses/>.
 \*---------------------------------------------------------------------------*/
-Info<< "Reading transportProperties\n" << endl;
-
-IOdictionary transportProperties
-(
-    IOobject
-    (
-        "transportProperties",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ_IF_MODIFIED,
-        IOobject::NO_WRITE
-    )
-);
-
-_nu = autoPtr<dimensionedScalar>
-     (
-         new dimensionedScalar
-         (
-	     "nu",
- 	    dimViscosity,
- 	    transportProperties
-	 )
-     );
-//dimensionedScalar& nu = _nu();
-
-
-Info<< "Reading field p\n" << endl;
-_p = autoPtr<volScalarField>
-     (
-         new volScalarField
-         (
-             IOobject
-             (
-                 "p",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volScalarField& p = _p();
-
-
-
-Info<< "Reading field U\n" << endl;
-_U = autoPtr<volVectorField>
-     (
-         new volVectorField
-         (
-             IOobject
-             (
-                 "U",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volVectorField& U = _U();
-
-#include "createPhi.H"
-
-
-
-pRefCell = 0;
-pRefValue = 0.0;
-setRefCell(p, mesh.solutionDict().subDict("PISO"), pRefCell, pRefValue);
-mesh.setFluxRequired(p.name());
+Foam::Info<< "Create time\n" << Foam::endl;
+_runTime = autoPtr<Foam::Time>( new Foam::Time( Foam::Time::controlDictName,
+                                args ) );
+Foam::Time& runTime = _runTime();
