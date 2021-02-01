@@ -7,7 +7,7 @@
      ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝      ╚═╝       ╚═══╝
 
  * In real Time Highly Advanced Computational Applications for Finite Volumes
- * Copyright (C) 2017 by the ITHACA-FV authors
+ * Copyright (C) 2017 by the ITHACA-FV authors 
 -------------------------------------------------------------------------------
 License
     This file is part of ITHACA-FV
@@ -90,10 +90,14 @@ class varviscoINS
             surfaceScalarField yPos = mesh.Cf().component(vector::Y);
             surfaceScalarField xPos = mesh.Cf().component(vector::X);
 	    surfaceScalarField& nu = _nu();
-            forAll(xPos, counter)
+	    //_nu.dimViscosity.clear();
+	    //_nu = autoPtr<surfaceScalarField>(new surfaceScalarField());
+	    forAll(xPos, counter)
             {
-                 nu[counter] = xPos[counter] + yPos[counter];
+                 nu[counter] = 1 + 6*pow(xPos[counter],2)+xPos[counter]/(1+2*pow(yPos[counter],2));		 
+		//Info<< " nu = " << nu[counter] << " xPos = " << xPos[counter] << " yPos = " << yPos[counter] << endl;
             }
+	    //_nu = autoPtr<surfaceScalarField>(&nu);
         }
         //--------------------------------------------------------------------------
         /// Perform a truthsolve
@@ -188,7 +192,7 @@ int main(int argc, char *argv[])
 {
     varviscoINS example( argc, argv);
     example.compute_nu();
-    //example.icosolve();
+    example.icosolve();
     return 0;
 }
 

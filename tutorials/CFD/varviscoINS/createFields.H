@@ -36,6 +36,22 @@ IOdictionary transportProperties
     )
 );
 
+_nu = autoPtr<surfaceScalarField>
+     (
+         new surfaceScalarField
+         (
+             IOobject
+             (
+                 "nu",
+                 runTime.timeName(),
+                 mesh,
+                 IOobject::NO_READ,
+                 IOobject::AUTO_WRITE
+             ),
+             mesh,
+	     dimViscosity
+         )
+     );
 
 
 Info<< "Reading field p\n" << endl;
