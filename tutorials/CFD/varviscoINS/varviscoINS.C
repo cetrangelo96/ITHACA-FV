@@ -90,14 +90,17 @@ class varviscoINS
             surfaceScalarField yPos = mesh.Cf().component(vector::Y);
             surfaceScalarField xPos = mesh.Cf().component(vector::X);
 	    surfaceScalarField& nu = _nu();
-	    //_nu.dimViscosity.clear();
-	    //_nu = autoPtr<surfaceScalarField>(new surfaceScalarField());
 	    forAll(xPos, counter)
             {
-                 nu[counter] = 1 + 6*pow(xPos[counter],2)+xPos[counter]/(1+2*pow(yPos[counter],2));		 
-		//Info<< " nu = " << nu[counter] << " xPos = " << xPos[counter] << " yPos = " << yPos[counter] << endl;
+		 nu[counter] = 1 + 6*pow(xPos[counter],2)+xPos[counter]/(1+2*pow(yPos[counter],2));		 
             }
-	    //_nu = autoPtr<surfaceScalarField>(&nu);
+	    for(label j=0; j<nu.boundaryField().size(); j++)
+            {
+		for (label i = 0; i < nu.boundaryField()[j].size(); i++)
+		    {
+            	    nu.boundaryFieldRef()[j][i] = 1 + 6*pow(xPos.boundaryField()[j][i],2)+xPos.boundaryField()[j][i]/(1+2*pow(yPos.boundaryField()[j][i],2));
+		    }
+	    }	    
         }
         //--------------------------------------------------------------------------
         /// Perform a truthsolve
@@ -131,7 +134,7 @@ class varviscoINS
 	        if (piso.momentumPredictor())
 	        {
 	            solve(UEqn == -fvc::grad(p));
-	        }
+		}
 	
 	        // --- PISO loop
 	        while (piso.correct())
