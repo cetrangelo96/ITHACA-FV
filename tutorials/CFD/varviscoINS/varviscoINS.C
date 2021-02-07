@@ -92,15 +92,15 @@ class varviscoINS
 	    surfaceScalarField& nu = _nu();
 	    forAll(xPos, counter)
             {
-		 nu[counter] = 1 + 6*pow(xPos[counter],2)+xPos[counter]/(1+2*pow(yPos[counter],2));		 
+		 nu[counter] = (1 + 6*pow(xPos[counter],2)+xPos[counter]/(1+2*pow(yPos[counter],2)));		 
             }
 	    for(label j=0; j<nu.boundaryField().size(); j++)
             {
 		for (label i = 0; i < nu.boundaryField()[j].size(); i++)
 		    {
-            	    nu.boundaryFieldRef()[j][i] = 1 + 6*pow(xPos.boundaryField()[j][i],2)+xPos.boundaryField()[j][i]/(1+2*pow(yPos.boundaryField()[j][i],2));
+            	    nu.boundaryFieldRef()[j][i] = (1 + 6*pow(xPos.boundaryField()[j][i],2)+xPos.boundaryField()[j][i]/(1+2*pow(yPos.boundaryField()[j][i],2)));
 		    }
-	    }	    
+	    }	
         }
         //--------------------------------------------------------------------------
         /// Perform a truthsolve
