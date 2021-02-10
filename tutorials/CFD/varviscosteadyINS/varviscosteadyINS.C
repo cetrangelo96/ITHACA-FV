@@ -25,18 +25,21 @@ Description
     Transient solver for incompressible, laminar flow of Newtonian fluids with 
     variable viscosity.
 SourceFiles
-    varviscoINS.C
+    varviscosteadyINS.C
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
-#include "pisoControl.H" // Specialization of the pimpleControl class for PISO control.
+#include "singlePhaseTransportModel.H"
+#include "turbulentTransportModel.H"
+#include "simpleControl.H"
+#include "fvOptions.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-class varviscoINS
+class varviscosteadyINS
 {
     public:
 	// Constructor
-	explicit varviscoINS(int argc, char* argv[])
+	explicit varviscosteadyINS(int argc, char* argv[])
 	{
 	    _args = autoPtr<argList>
                 (
@@ -51,17 +54,20 @@ class varviscoINS
             argList& args = _args();
         #include "createTime.H"
         #include "createMesh.H"
-	    _piso = autoPtr<pisoControl>
-              	    (
-               	        new pisoControl
-                        (
-                            mesh
-                    	)
-              	    );
+	    _simple = autoPtr<simpleControl>
+	          (
+		      new simpleControl
+		      (
+		          mesh
+		      )
+	          );
+	    simpleControl& simple = _simple();
 	#include "createFields.H"
+	#include "createFvOptions.H"
+	    turbulence->validate();
 	};
 	// Destructor
-	~varviscoINS() {};
+	~varviscosteadyINS() {};
 	/// Reference pressure cell
         label pRefCell;
         /// Reference pressure value
@@ -69,36 +75,45 @@ class varviscoINS
 	// argList
 	autoPtr<argList> _args;
 	/// simpleControl
-        autoPtr<pisoControl> _piso;
+        autoPtr<simpleControl> _simple;
+	/// Turbulence model
+        autoPtr<incompressible::turbulenceModel> turbulence;
+        /// Laminar transport (used by turbulence model)
+        autoPtr<singlePhaseTransportModel> _laminarTransport;
+        /// MRF variable
+        autoPtr<IOMRFZoneList> _MRF;
 	// Dummy variables to transform icoFoam into a class
 	/// Pressure field
         autoPtr<volScalarField> _p;
         /// Velocity field
         autoPtr<volVectorField> _U;
-        /// Viscosity
-        autoPtr<surfaceScalarField> _nu;
+        /*/// Viscosity
+        autoPtr<surfaceScalarField> _nu;*/
 	/// Flux
         autoPtr<surfaceScalarField> _phi;
         /// Mesh
         mutable autoPtr<fvMesh> _mesh;
+	/// fvOptions
+        autoPtr<fv::options> _fvOptions;
         /// Time
         autoPtr<Time> _runTime;
 	// Functions
 	/// Define the viscosity function
         void compute_nu()
         {   fvMesh& mesh = _mesh();
-            surfaceScalarField yPos = mesh.Cf().component(vector::Y);
-            surfaceScalarField xPos = mesh.Cf().component(vector::X);
-	    surfaceScalarField& nu = _nu();
+            volScalarField yPos = mesh.C().component(vector::Y);
+            volScalarField xPos = mesh.C().component(vector::X);
+	    const volScalarField& nu = _laminarTransport().nu();
+	    volScalarField& nu_ = const_cast<volScalarField&>(nu);
 	    forAll(xPos, counter)
             {
-		 nu[counter] = (1 + 6*pow(xPos[counter],2)+xPos[counter]/(1+2*pow(yPos[counter],2)));		 
+		 nu_[counter] = (1 + 6*pow(xPos[counter],2)+xPos[counter]/(1+2*pow(yPos[counter],2)));		 
             }
-	    for(label j=0; j<nu.boundaryField().size(); j++)
+	    for(label j=0; j<nu_.boundaryField().size(); j++)
             {
-		for (label i = 0; i < nu.boundaryField()[j].size(); i++)
+		for (label i = 0; i < nu_.boundaryField()[j].size(); i++)
 		    {
-            	    nu.boundaryFieldRef()[j][i] = (1 + 6*pow(xPos.boundaryField()[j][i],2)+xPos.boundaryField()[j][i]/(1+2*pow(yPos.boundaryField()[j][i],2)));
+            	    nu_.boundaryFieldRef()[j][i] = (1 + 6*pow(xPos.boundaryField()[j][i],2)+xPos.boundaryField()[j][i]/(1+2*pow(yPos.boundaryField()[j][i],2)));
 		    }
 	    }	
         }
@@ -106,84 +121,58 @@ class varviscoINS
         /// Perform a truthsolve
 	void icosolve()
 	{
-	Time& runTime = _runTime();
-        fvMesh& mesh = _mesh();
-        volScalarField& p = _p();
-        volVectorField& U = _U();
-	surfaceScalarField& nu = _nu();
-        surfaceScalarField& phi = _phi();
-        pisoControl& piso = _piso();
+	    Time& runTime = _runTime();
+            fvMesh& mesh = _mesh();
+            volScalarField& p = _p();
+            volVectorField& U = _U();
+	    //surfaceScalarField& nu = _nu();
+            surfaceScalarField& phi = _phi();
+            fv::options& fvOptions = _fvOptions();
+            simpleControl& simple = _simple();
+            IOMRFZoneList& MRF = _MRF();
+    	    singlePhaseTransportModel& laminarTransport = _laminarTransport();
 	#include "initContinuityErrs.H"        
-	Info<< "\nStarting time loop\n" << endl;
+	    Info<< "\nStarting time loop\n" << endl;
+	    scalar tolerance =  1e-5;
+	    scalar maxIter = 1000;	    
+	    scalar residual = 1;
+	    scalar uresidual = 1;
+	    Vector<double> uresidual_v(0, 0, 0);
 
-        while (runTime.loop())
-            {
-        	Info<< "Time = " << runTime.timeName() << nl << endl;
+	    scalar presidual = 1;
+	    scalar csolve = 0;
 
-        	#include "CourantNo.H" // Calculates and outputs the mean and maximum Courant Numbers.
+	    while (simple.loop() && residual > tolerance && csolve < maxIter)
+	    {
+		Info<< "Time = " << runTime.timeName() << nl << endl;
+	    
+		// --- Pressure-velocity SIMPLE corrector
+		{
+		    #include "UEqn.H"
+		    #include "pEqn.H"
+		    	scalar C = 0;
 
-        	// Momentum predictor
+			for (label i = 0; i < 3; i++)
+			{
+			    if (C < uresidual_v[i])
+			    {
+				C = uresidual_v[i];
+			    }
+			}
 
-        	fvVectorMatrix UEqn
-        	(
-        	    fvm::ddt(U)
-        	  + fvm::div(phi, U)
-        	  - fvm::laplacian(nu, U)
-        	);
-
-	        if (piso.momentumPredictor())
-	        {
-	            solve(UEqn == -fvc::grad(p));
+			uresidual = C;
+			residual = max(presidual, uresidual);
+			Info << "\nResidual: " << residual << endl << endl;
 		}
-	
-	        // --- PISO loop
-	        while (piso.correct())
-	        {
-	            volScalarField rAU(1.0/UEqn.A());
-	            volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));
-	            surfaceScalarField phiHbyA
-	            (
-	                "phiHbyA",
-	                fvc::flux(HbyA)
-	              + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)
-	            );
-	
-	            adjustPhi(phiHbyA, U, p);
-	
-	            // Update the pressure BCs to ensure flux consistency
-	            constrainPressure(p, U, phiHbyA, rAU);
-	
-	            // Non-orthogonal pressure corrector loop
-	            while (piso.correctNonOrthogonal())
-	            {
-	                // Pressure corrector
-	
-	                fvScalarMatrix pEqn
-	                (
-	                    fvm::laplacian(rAU, p) == fvc::div(phiHbyA)
-	                );
-	
-	                pEqn.setReference(pRefCell, pRefValue);
-	
-	                pEqn.solve(mesh.solver(p.select(piso.finalInnerIter())));
-	
-	                if (piso.finalNonOrthogonalIter())
-	                {
-	                    phi = phiHbyA - pEqn.flux();
-	                }
-	            }
-	
-	            #include "continuityErrs.H"
-	
-	            U = HbyA - rAU*fvc::grad(p);
-	            U.correctBoundaryConditions();
-	        }
-	
-	        runTime.write();
-	
-	        runTime.printExecutionTime(Info);
+
+		laminarTransport.correct();
+		turbulence->correct();
+		csolve = csolve + 1;
+		runTime.write();
+
+		runTime.printExecutionTime(Info);
 	    }
-	
+
 	    Info<< "End\n" << endl;
 	
 	};
@@ -193,7 +182,7 @@ class varviscoINS
 
 int main(int argc, char *argv[])
 {
-    varviscoINS example( argc, argv);
+    varviscosteadyINS example( argc, argv);
     example.compute_nu();
     example.icosolve();
     return 0;

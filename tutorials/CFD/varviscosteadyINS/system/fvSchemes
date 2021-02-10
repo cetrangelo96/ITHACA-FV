@@ -17,7 +17,7 @@ FoamFile
 
 ddtSchemes
 {
-    default         Euler;
+    default         steadyState;
 }
 
 gradSchemes
@@ -28,8 +28,8 @@ gradSchemes
 
 divSchemes
 {
-    default         none;
-    div(phi,U)      Gauss linear;
+    default         Gauss linear upwind;
+    div(phi,U)      Gauss linear upwind;
 }
 
 laplacianSchemes
@@ -47,5 +47,12 @@ snGradSchemes
     default         orthogonal;
 }
 
+fluxRequired
+{
+    default         no;
+    pcorr           ;
+    p;
+    Phi             ;
+}
 
 // ************************************************************************* //

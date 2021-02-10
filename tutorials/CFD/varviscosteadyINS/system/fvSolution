@@ -47,6 +47,35 @@ PISO
     pRefCell        0;
     pRefValue       0;
 }
+cache
+{
+    grad(U);
+}
+
+PIMPLE
+{
+    correctPhi          yes;
+    nOuterCorrectors    2;
+    nCorrectors         2;
+    nNonOrthogonalCorrectors 0;
+    pRefCell        0;
+    pRefValue       0;
+}
+SIMPLE
+{
+    nNonOrthogonalCorrectors 0;
+    nOuterCorrectors    2;
+    nCorrectors         2;
+    pRefCell        0;
+    pRefValue       0;
+
+    residualControl
+    {
+        p               1e-9;
+        U               1e-9;
+        nuTilda         1e-6;
+    }
+}
 
 
 // ************************************************************************* //

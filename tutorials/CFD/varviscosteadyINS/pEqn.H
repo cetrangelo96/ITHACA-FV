@@ -22,96 +22,61 @@
   You should have received a copy of the GNU Lesser General Public License
   along with ITHACA-FV. If not, see <http://www.gnu.org/licenses/>.
 \*---------------------------------------------------------------------------*/
-Info<< "Reading transportProperties\n" << endl;
+{
+    volScalarField rAU(1.0/UEqn.A());
+    volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));
+    surfaceScalarField phiHbyA("phiHbyA", fvc::flux(HbyA));
+    MRF.makeRelative(phiHbyA);
+    adjustPhi(phiHbyA, U, p);
 
-/*IOdictionary transportProperties
-(
-    IOobject
-    (
-        "transportProperties",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ_IF_MODIFIED,
-        IOobject::NO_WRITE
-    )
-);
+    tmp<volScalarField> rAtU(rAU);
 
-_nu = autoPtr<surfaceScalarField>
-     (
-         new surfaceScalarField
-         (
-             IOobject
-             (
-                 "nu",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::NO_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh,
-	     dimViscosity
-         )
-     );*/
+    if (simple.consistent())
+    {
+        rAtU = 1.0/(1.0/rAU - UEqn.H1());
+        phiHbyA +=
+            fvc::interpolate(rAtU() - rAU)*fvc::snGrad(p)*mesh.magSf();
+        HbyA -= (rAU - rAtU())*fvc::grad(p);
+    }
 
+    tUEqn.clear();
 
-Info<< "Reading field p\n" << endl;
-_p = autoPtr<volScalarField>
-     (
-         new volScalarField
-         (
-             IOobject
-             (
-                 "p",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volScalarField& p = _p();
+    // Update the pressure BCs to ensure flux consistency
+    constrainPressure(p, U, phiHbyA, rAtU(), MRF);
+    label i = 0;
+    // Non-orthogonal pressure corrector loop
+    while (simple.correctNonOrthogonal())
+    {
+        fvScalarMatrix pEqn
+        (
+            fvm::laplacian(rAtU(), p) == fvc::div(phiHbyA)
+        );
 
+        pEqn.setReference(pRefCell, pRefValue);
 
+        if (i == 0)
+        {
+            presidual = pEqn.solve().initialResidual();
+        }
+        else
+        {
+            pEqn.solve().initialResidual();
+        }
 
-Info<< "Reading field U\n" << endl;
-_U = autoPtr<volVectorField>
-     (
-         new volVectorField
-         (
-             IOobject
-             (
-                 "U",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volVectorField& U = _U();
+        if (simple.finalNonOrthogonalIter())
+        {
+            phi = phiHbyA - pEqn.flux();
+        }
+	i++;
+    }
 
-#include "createPhi.H"
+    #include "continuityErrs.H"
 
-pRefCell = 0;
-pRefValue = 0.0;
-setRefCell(p, simple.dict(), pRefCell, pRefValue);
+    // Explicitly relax pressure for momentum corrector
+    p.relax();
 
-_laminarTransport = autoPtr<singlePhaseTransportModel>
-                    (
-                        new singlePhaseTransportModel( U, phi )
-                    );
-singlePhaseTransportModel& laminarTransport = _laminarTransport();
-
-turbulence = autoPtr<incompressible::turbulenceModel>
-             (
-                 incompressible::turbulenceModel::New(U, phi, laminarTransport)
-             );
-
-_MRF = autoPtr<IOMRFZoneList>
-       (
-           new IOMRFZoneList(mesh)
-       );
-
-
+    // Momentum corrector
+    U = HbyA - rAtU()*fvc::grad(p);
+    U.correctBoundaryConditions();
+    fvOptions.correct(U);
+}

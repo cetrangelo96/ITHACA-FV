@@ -15,7 +15,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-application     icoFoam;
+application     simpleFoam;
 
 startFrom       startTime;
 
@@ -23,13 +23,13 @@ startTime       0;
 
 stopAt          endTime;
 
-endTime         10;
+endTime         1000;
 
 deltaT          0.005;
 
 writeControl    timeStep;
 
-writeInterval   200;
+writeInterval   2000;
 
 purgeWrite      0;
 

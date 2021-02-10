@@ -22,96 +22,26 @@
   You should have received a copy of the GNU Lesser General Public License
   along with ITHACA-FV. If not, see <http://www.gnu.org/licenses/>.
 \*---------------------------------------------------------------------------*/
-Info<< "Reading transportProperties\n" << endl;
+    // Momentum predictor
 
-/*IOdictionary transportProperties
-(
-    IOobject
+    MRF.correctBoundaryVelocity(U);
+
+    tmp<fvVectorMatrix> tUEqn
     (
-        "transportProperties",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ_IF_MODIFIED,
-        IOobject::NO_WRITE
-    )
-);
+        fvm::div(phi, U)
+      + MRF.DDt(U)
+      + turbulence->divDevReff(U)
+     ==
+        fvOptions(U)
+    );
+    fvVectorMatrix& UEqn = tUEqn.ref();
 
-_nu = autoPtr<surfaceScalarField>
-     (
-         new surfaceScalarField
-         (
-             IOobject
-             (
-                 "nu",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::NO_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh,
-	     dimViscosity
-         )
-     );*/
+    UEqn.relax();
 
+    fvOptions.constrain(UEqn);
 
-Info<< "Reading field p\n" << endl;
-_p = autoPtr<volScalarField>
-     (
-         new volScalarField
-         (
-             IOobject
-             (
-                 "p",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volScalarField& p = _p();
-
-
-
-Info<< "Reading field U\n" << endl;
-_U = autoPtr<volVectorField>
-     (
-         new volVectorField
-         (
-             IOobject
-             (
-                 "U",
-                 runTime.timeName(),
-                 mesh,
-                 IOobject::MUST_READ,
-                 IOobject::AUTO_WRITE
-             ),
-             mesh
-         )
-     );
-volVectorField& U = _U();
-
-#include "createPhi.H"
-
-pRefCell = 0;
-pRefValue = 0.0;
-setRefCell(p, simple.dict(), pRefCell, pRefValue);
-
-_laminarTransport = autoPtr<singlePhaseTransportModel>
-                    (
-                        new singlePhaseTransportModel( U, phi )
-                    );
-singlePhaseTransportModel& laminarTransport = _laminarTransport();
-
-turbulence = autoPtr<incompressible::turbulenceModel>
-             (
-                 incompressible::turbulenceModel::New(U, phi, laminarTransport)
-             );
-
-_MRF = autoPtr<IOMRFZoneList>
-       (
-           new IOMRFZoneList(mesh)
-       );
-
-
+    if (simple.momentumPredictor())
+    {
+        solve(UEqn == -fvc::grad(p));	
+        fvOptions.correct(U);
+    }

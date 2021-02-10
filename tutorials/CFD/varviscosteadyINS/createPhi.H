@@ -40,7 +40,7 @@ _phi = autoPtr<surfaceScalarField>
                fvc::flux(U)
            )
        );
-//surfaceScalarField& phi = _phi();
+surfaceScalarField& phi = _phi();
 
 
 
