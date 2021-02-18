@@ -10,49 +10,20 @@ FoamFile
     version     2.0;
     format      ascii;
     class       dictionary;
-    location    "system";
-    object      fvSchemes;
+    location    "1/uniform";
+    object      time;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-ddtSchemes
-{
-    default         steadyState;
-}
+value           1.00000000000000067;
 
-gradSchemes
-{
-    default         Gauss linear;
-}
+name            "1";
 
-divSchemes
-{
-    default         Gauss linear upwind;
-    div(phi,U)      Gauss linear upwind;
-}
+index           200;
 
-laplacianSchemes
-{
-    default         Gauss linear orthogonal;
-}
+deltaT          0.005;
 
-interpolationSchemes
-{
-    default         linear;
-}
+deltaT0         0.005;
 
-snGradSchemes
-{
-    default         orthogonal;
-}
-
-fluxRequired
-{
-    default         no;
-    pcorr           ;
-    p;
-    Phi             ;
-
-}
 
 // ************************************************************************* //

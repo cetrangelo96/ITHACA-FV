@@ -27,8 +27,8 @@ gradSchemes
 
 divSchemes
 {
-    default         Gauss linear upwind;
-    div(phi,U)      Gauss linear upwind;
+    default         Gauss linear;
+    div(phi,U)      Gauss linear;
 }
 
 laplacianSchemes
@@ -50,7 +50,7 @@ fluxRequired
 {
     default         no;
     pcorr           ;
-    p;
+    p		    ;
     Phi             ;
 
 }

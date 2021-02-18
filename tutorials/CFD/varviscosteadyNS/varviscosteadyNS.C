@@ -25,7 +25,7 @@ Description
     Transient solver for incompressible, laminar flow of Newtonian fluids with 
     variable viscosity.
 SourceFiles
-    varviscosteadyINS.C
+    varviscosteadyNS.C
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
@@ -33,6 +33,7 @@ SourceFiles
 #include "turbulentTransportModel.H"
 #include "simpleControl.H"
 #include "fvOptions.H"
+#include <Eigen/Dense>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 class varviscosteadyINS
@@ -87,8 +88,6 @@ class varviscosteadyINS
         autoPtr<volScalarField> _p;
         /// Velocity field
         autoPtr<volVectorField> _U;
-        /*/// Viscosity
-        autoPtr<surfaceScalarField> _nu;*/
 	/// Flux
         autoPtr<surfaceScalarField> _phi;
         /// Mesh
@@ -99,7 +98,7 @@ class varviscosteadyINS
         autoPtr<Time> _runTime;
 	// Functions
 	/// Define the viscosity function
-        void compute_nu()
+        void calc_nu()
         {   fvMesh& mesh = _mesh();
             volScalarField yPos = mesh.C().component(vector::Y);
             volScalarField xPos = mesh.C().component(vector::X);
@@ -116,66 +115,49 @@ class varviscosteadyINS
             	    nu_.boundaryFieldRef()[j][i] = (1 + 6*pow(xPos.boundaryField()[j][i],2)+xPos.boundaryField()[j][i]/(1+2*pow(yPos.boundaryField()[j][i],2)));
 		    }
 	    }	
-		Info<< _laminarTransport().nu()<<endl;
+
         }
         //--------------------------------------------------------------------------
-        /// Perform a truthsolve
-	void icosolve()
+        /// Perform a SIMPLE solver
+	void SIMPLEsolve()
 	{
 	    Time& runTime = _runTime();
             fvMesh& mesh = _mesh();
             volScalarField& p = _p();
             volVectorField& U = _U();
-	    //surfaceScalarField& nu = _nu();
             surfaceScalarField& phi = _phi();
             fv::options& fvOptions = _fvOptions();
             simpleControl& simple = _simple();
             IOMRFZoneList& MRF = _MRF();
     	    singlePhaseTransportModel& laminarTransport = _laminarTransport();
-	#include "initContinuityErrs.H"        
+	     #include "initContinuityErrs.H"
+
+	    turbulence->validate();
+
+	    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
 	    Info<< "\nStarting time loop\n" << endl;
-	    scalar tolerance =  1e-5;
-	    scalar maxIter = 1000;	    
-	    scalar residual = 1;
-	    scalar uresidual = 1;
-	    Vector<double> uresidual_v(0, 0, 0);
 
-	    scalar presidual = 1;
-	    scalar csolve = 0;
-
-	    while (simple.loop() && residual > tolerance && csolve < maxIter)
+	    while (simple.loop())
 	    {
 		Info<< "Time = " << runTime.timeName() << nl << endl;
-	    
+
 		// --- Pressure-velocity SIMPLE corrector
 		{
 		    #include "UEqn.H"
 		    #include "pEqn.H"
-		    	scalar C = 0;
-
-			for (label i = 0; i < 3; i++)
-			{
-			    if (C < uresidual_v[i])
-			    {
-				C = uresidual_v[i];
-			    }
-			}
-
-			uresidual = C;
-			residual = max(presidual, uresidual);
-			Info << "\nResidual: " << residual << endl << endl;
 		}
 
 		laminarTransport.correct();
 		turbulence->correct();
-		csolve = csolve + 1;
+
 		runTime.write();
 
 		runTime.printExecutionTime(Info);
 	    }
 
 	    Info<< "End\n" << endl;
-	
+
 	};
 };
 
@@ -184,8 +166,8 @@ class varviscosteadyINS
 int main(int argc, char *argv[])
 {
     varviscosteadyINS example( argc, argv);
-    //example.compute_nu();
-    example.icosolve();
+    example.calc_nu();
+    example.SIMPLEsolve();
     return 0;
 }
 

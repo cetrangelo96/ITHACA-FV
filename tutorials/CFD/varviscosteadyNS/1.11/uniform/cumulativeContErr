@@ -9,50 +9,15 @@ FoamFile
 {
     version     2.0;
     format      ascii;
-    class       dictionary;
-    location    "system";
-    object      fvSchemes;
+    class       uniformDimensionedScalarField;
+    location    "1.11/uniform";
+    object      cumulativeContErr;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-ddtSchemes
-{
-    default         steadyState;
-}
+dimensions      [0 0 0 0 0 0 0];
+value           1.6218e-19;
 
-gradSchemes
-{
-    default         Gauss linear;
-}
 
-divSchemes
-{
-    default         Gauss linear upwind;
-    div(phi,U)      Gauss linear upwind;
-}
-
-laplacianSchemes
-{
-    default         Gauss linear orthogonal;
-}
-
-interpolationSchemes
-{
-    default         linear;
-}
-
-snGradSchemes
-{
-    default         orthogonal;
-}
-
-fluxRequired
-{
-    default         no;
-    pcorr           ;
-    p;
-    Phi             ;
-
-}
 
 // ************************************************************************* //
